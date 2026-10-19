@@ -52,3 +52,4 @@ criterion/          # html benchmark reports, large & reproducible
 # ─── Project-specific ────────────────────────────────────────────────────────
 _grouped/           # default grouper output directory
 *.tmp
+/handoffs/
