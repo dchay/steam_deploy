@@ -4,7 +4,8 @@
 # ─── Rust / Cargo ────────────────────────────────────────────────────────────
 *.rs      text eol=lf
 *.toml    text eol=lf
-*.lock    text eol=lf  -diff   # keep LF; suppress noisy diffs in `git log -p`
+# keep LF; suppress noisy diffs in `git log -p`
+*.lock    text eol=lf  -diff
 Cargo.lock text eol=lf -diff merge=binary
 
 # ─── Shell / batch: keep native line endings ─────────────────────────────────
@@ -12,7 +13,8 @@ Cargo.lock text eol=lf -diff merge=binary
 *.bash    text eol=lf
 *.bat     text eol=crlf
 *.cmd     text eol=crlf
-*.ps1     text eol=crlf        # PowerShell scripts need CRLF on Win11
+# PowerShell scripts need CRLF on Win11
+*.ps1     text eol=crlf
 
 # ─── Markdown / docs ─────────────────────────────────────────────────────────
 *.md      text eol=lf
