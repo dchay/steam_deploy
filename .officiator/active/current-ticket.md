@@ -1,11 +1,11 @@
 ID:
-NONE
+P0-002
 
 STATUS:
-IDLE
+ACTIVE
 
 OWNER:
-NONE
+GPT
 
 NEXT ACTION:
-Select Ticket
+Generate Upload Stage Implementation

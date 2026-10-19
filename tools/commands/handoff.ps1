@@ -10,7 +10,7 @@ $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 if ($Mode -eq 'implement')
 {
-    $output = "handoffs/gpt/$Ticket-$timestamp.md"
+    $output = "handoffs/active/$Ticket-implement-gpt.md"
 
     @"
 TICKET
@@ -56,7 +56,7 @@ Submit packet to GPT.
 }
 else
 {
-    $output = "handoffs/deepseek/$Ticket-$timestamp.md"
+    $output = "handoffs/active/$Ticket-review-deepseek.md"
 
     @"
 TICKET
