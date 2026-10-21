@@ -45,3 +45,22 @@ Output
 - Summaries
 - Consolidated References
 - Research Findings
+
+Architecture Audit Packet
+
+Worker
+
+Gemini
+
+Purpose
+
+Discover system structure
+
+Output
+
+- Interfaces
+- Dependencies
+- Risks
+- Required Changes
+
+No implementation.
