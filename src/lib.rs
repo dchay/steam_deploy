@@ -1,3 +1,5 @@
+mod state;
+
 pub mod models {
     pub mod config;
 }
