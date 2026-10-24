@@ -8,6 +8,14 @@ fn field_value<'a>(
         .map(|v| v.trim())
 }
 
+#[derive(Debug, Clone)]
+pub struct State {
+    pub ticket_id: String,
+    pub state: WorkflowState,
+    pub attempt: u32,
+    pub last_transition: String,
+}
+
 impl State {
     pub fn new(
         ticket_id: String,
@@ -97,6 +105,29 @@ impl State {
 
         Ok(())
     }
+
+    pub fn save(
+        &self,
+        path: &str,
+    ) -> Result<(), String> {
+        let contents = format!(
+            "\
+---
+ticket_id: {}
+state: {}
+attempt: {}
+last_transition: {}
+---
+",
+            self.ticket_id,
+            self.state.as_str(),
+            self.attempt,
+            self.last_transition,
+        );
+
+        fs::write(path, contents)
+            .map_err(|e| e.to_string())
+    }
 }
 
 pub fn can_transition(
@@ -134,14 +165,71 @@ impl WorkflowState {
             _ => WorkflowState::Ready,
         }
     }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            WorkflowState::Ready => "ready",
+            WorkflowState::Implementing => "implementing",
+            WorkflowState::Reviewing => "reviewing",
+            WorkflowState::Approved => "approved",
+            WorkflowState::Closed => "closed",
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
-pub struct State {
-    pub ticket_id: String,
-    pub state: WorkflowState,
-    pub attempt: u32,
-    pub last_transition: String,
+pub struct TransitionService;
+
+impl TransitionService {
+    pub fn apply(
+        state: &mut State,
+        target: WorkflowState,
+    ) -> Result<(), String> {
+        if !can_transition(
+            &state.state,
+            &target,
+        ) {
+            return Err(format!(
+                "invalid transition: {:?} -> {:?}",
+                state.state,
+                target
+            ));
+        }
+
+        let increment_attempt = matches!(
+        (&state.state, &target),
+        (
+            WorkflowState::Reviewing,
+            WorkflowState::Implementing,
+        )
+        | (
+            WorkflowState::Approved,
+            WorkflowState::Implementing,
+        )
+    );
+
+        state.state = target;
+
+        if increment_attempt {
+            state.attempt += 1;
+        }
+
+        state.last_transition =
+            "TRANSITION_TIMESTAMP".to_string();
+
+        state.validate()
+    }
+
+    pub fn apply_and_save(
+        state: &mut State,
+        target: WorkflowState,
+        path: &str,
+    ) -> Result<(), String> {
+        Self::apply(state, target)?;
+
+        state.save(path)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -356,5 +444,220 @@ last_transition: 2099-12-31T23:59:59Z
             state.state,
             WorkflowState::Ready
         );
+    }
+
+    #[test]
+    fn save_round_trip() {
+        let original = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Approved,
+            7,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        let file = temp_state_file("");
+
+        original
+            .save(file.path().to_str().unwrap())
+            .expect("state should save");
+
+        let loaded = State::load(
+            file.path().to_str().unwrap(),
+        )
+            .expect("state should load");
+
+        assert_eq!(
+            loaded.ticket_id,
+            original.ticket_id
+        );
+
+        assert_eq!(
+            loaded.state,
+            original.state
+        );
+
+        assert_eq!(
+            loaded.attempt,
+            original.attempt
+        );
+
+        assert_eq!(
+            loaded.last_transition,
+            original.last_transition
+        );
+    }
+
+    #[test]
+    fn service_applies_valid_transition() {
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Ready,
+            1,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        TransitionService::apply(
+            &mut state,
+            WorkflowState::Implementing,
+        )
+            .expect("transition should succeed");
+
+        assert_eq!(
+            state.state,
+            WorkflowState::Implementing
+        );
+
+        assert_eq!(state.attempt, 1);
+
+        assert_eq!(
+            state.last_transition,
+            "TRANSITION_TIMESTAMP"
+        );
+    }
+
+    #[test]
+    fn service_rejects_invalid_transition() {
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Ready,
+            1,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        let result = TransitionService::apply(
+            &mut state,
+            WorkflowState::Approved,
+        );
+
+        assert!(result.is_err());
+
+        assert_eq!(
+            state.state,
+            WorkflowState::Ready
+        );
+    }
+
+    #[test]
+    fn transition_can_be_saved_and_reloaded() {
+        let file = temp_state_file("");
+
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Ready,
+            1,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        TransitionService::apply(
+            &mut state,
+            WorkflowState::Implementing,
+        )
+            .expect("transition should succeed");
+
+        state
+            .save(file.path().to_str().unwrap())
+            .expect("state should save");
+
+        let loaded = State::load(
+            file.path().to_str().unwrap(),
+        )
+            .expect("state should load");
+
+        assert_eq!(
+        loaded.state,
+        WorkflowState::Implementing,
+    );
+
+        assert_eq!(loaded.attempt, 1);
+    }
+
+    #[test]
+    fn transition_can_apply_and_save() {
+        let file = temp_state_file("");
+
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Ready,
+            1,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        TransitionService::apply_and_save(
+            &mut state,
+            WorkflowState::Implementing,
+            file.path().to_str().unwrap(),
+        )
+            .expect("transition should succeed");
+
+        let loaded = State::load(
+            file.path().to_str().unwrap(),
+        )
+            .expect("state should load");
+
+        assert_eq!(
+        loaded.state,
+        WorkflowState::Implementing,
+    );
+
+        assert_eq!(loaded.attempt, 1);
+
+        assert_eq!(
+        loaded.last_transition,
+        "TRANSITION_TIMESTAMP",
+    );
+    }
+
+    #[test]
+    fn implementation_transition_does_not_increment_attempt() {
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Ready,
+            1,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        TransitionService::apply(
+            &mut state,
+            WorkflowState::Implementing,
+        )
+            .unwrap();
+
+        assert_eq!(state.attempt, 1);
+    }
+
+    #[test]
+    fn review_failure_increments_attempt() {
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Reviewing,
+            1,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        TransitionService::apply(
+            &mut state,
+            WorkflowState::Implementing,
+        )
+            .unwrap();
+
+        assert_eq!(state.attempt, 2);
+    }
+
+    #[test]
+    fn approval_rejection_increments_attempt() {
+        let mut state = State::new(
+            "P0-002".to_string(),
+            WorkflowState::Approved,
+            3,
+            "2099-12-31T23:59:59Z".to_string(),
+        );
+
+        TransitionService::apply(
+            &mut state,
+            WorkflowState::Implementing,
+        )
+            .unwrap();
+
+        assert_eq!(state.attempt, 4);
     }
 }
