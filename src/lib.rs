@@ -1,4 +1,5 @@
 mod state;
+mod cli;
 
 pub mod models {
     pub mod config;

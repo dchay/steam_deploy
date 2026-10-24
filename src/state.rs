@@ -56,25 +56,25 @@ impl State {
                 ticket_id = value.to_string();
             }
 
-            if let Some(value) = line.strip_prefix("state:") {
-                workflow_state = match value.trim() {
-                    "ready" => WorkflowState::Ready,
-                    "implementing" => WorkflowState::Implementing,
-                    "reviewing" => WorkflowState::Reviewing,
-                    "approved" => WorkflowState::Approved,
-                    "closed" => WorkflowState::Closed,
-                    _ => WorkflowState::Ready,
-                };
+            if let Some(value) =
+                field_value(line, "state:")
+            {
+                workflow_state =
+                    WorkflowState::from_str(value);
             }
 
-            if let Some(value) = line.strip_prefix("attempt:") {
+            if let Some(value) =
+                field_value(line, "attempt:")
+            {
                 attempt = value
-                    .trim()
                     .parse::<u32>()
                     .unwrap_or(1);
             }
-            if let Some(value) = line.strip_prefix("last_transition:") {
-                last_transition = value.trim().to_string();
+
+            if let Some(value) =
+                field_value(line, "last_transition:")
+            {
+                last_transition = value.to_string();
             }
         }
 
