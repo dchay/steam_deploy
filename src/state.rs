@@ -1,4 +1,8 @@
-use std::fs;
+use std::{
+    fs,
+    fs::OpenOptions,
+    io::Write,
+};
 
 fn field_value<'a>(
     line: &'a str,
@@ -227,6 +231,38 @@ impl TransitionService {
         Self::apply(state, target)?;
 
         state.save(path)?;
+
+        Ok(())
+    }
+}
+
+pub struct TransitionLog;
+
+impl TransitionLog {
+    pub fn append(
+        path: &str,
+        ticket_id: &str,
+        from: &WorkflowState,
+        to: &WorkflowState,
+        attempt: u32,
+        timestamp: &str,
+    ) -> Result<(), String> {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .map_err(|e| e.to_string())?;
+
+        writeln!(
+            file,
+            "{},{},{},{},{}",
+            timestamp,
+            ticket_id,
+            from.as_str(),
+            to.as_str(),
+            attempt,
+        )
+            .map_err(|e| e.to_string())?;
 
         Ok(())
     }
