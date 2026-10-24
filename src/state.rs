@@ -61,7 +61,18 @@ impl State {
         );
 
         Ok(state)
+    }
 
+    pub fn validate(&self) -> Result<(), String> {
+        if self.ticket_id.trim().is_empty() {
+            return Err("missing ticket_id".to_string());
+        }
+
+        if self.attempt < 1 {
+            return Err("attempt must be >= 1".to_string());
+        }
+
+        Ok(())
     }
 }
 
@@ -161,7 +172,8 @@ mod tests {
     fn load_returns_state() {
         let state = State::load(".officiator/active/state.md")
             .expect("state should load");
-
+        state.validate()
+            .expect("state should validate");
         assert_eq!(state.ticket_id, "P0-002");
         assert!(!state.ticket_id.is_empty());
         assert_eq!(state.attempt, 7);
@@ -173,7 +185,7 @@ mod tests {
 
         assert_eq!(
             state.last_transition,
-            "2026-10-23T16:00:00Z"
+            "2099-12-31T23:59:59Z"
         );
     }
 }
